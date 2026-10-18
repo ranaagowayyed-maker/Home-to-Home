@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { MoneyPipe } from '../../shared/lib/money.pipe';
 import { PagedList } from '../../shared/lib/paged-list';
 import { Button } from '../../shared/ui/button';
@@ -11,7 +12,7 @@ import { BrowseMeal } from './browse.models';
 
 @Component({
   selector: 'app-browse-page',
-  imports: [MoneyPipe, Button, EmptyState, ErrorBanner, Skeleton],
+  imports: [RouterLink, MoneyPipe, Button, EmptyState, ErrorBanner, Skeleton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './browse-page.html',
 })

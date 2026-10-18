@@ -30,8 +30,9 @@
         <ul class="grid gap-4 sm:grid-cols-2">
           @for (meal of meals.items(); track meal.id) {
             <li>
-              <article
-                class="flex h-full flex-col overflow-hidden rounded-xl border border-stone-200 bg-white"
+              <a
+                [routerLink]="['/browse', meal.id]"
+                class="flex h-full flex-col overflow-hidden rounded-xl border border-stone-200 bg-white hover:border-brand-200 hover:shadow-sm"
               >
                 <img
                   [src]="meal.photoUrl ?? placeholder"
@@ -48,7 +49,7 @@
                     {{ meal.priceMinor | money }}
                   </p>
                 </div>
-              </article>
+              </a>
             </li>
           }
         </ul>

@@ -40,7 +40,19 @@ first-party. See "Deploy to Railway" in the root README.
 
 ```
 src/app/
-  core/      auth service, HTTP interceptor, route guards, API helpers (ProblemDetails)
-  features/  auth (landing, sign-up, log-in), meals (My Meals, meal form), customer, delivery
-  shared/    ui (Button, Field, Toast, Dialog, EmptyState, ErrorBanner, Skeleton, header), lib (money)
+  core/      auth service, HTTP interceptor, route guards, API helpers (ProblemDetails, Paged),
+             CartService (signals + localStorage, one kitchen per cart), ConfigService (GET /config)
+  features/  auth (landing, sign-up, log-in)
+             meals (My Meals, meal form)
+             customer (Browse Meals, meal detail, cart, checkout)
+             orders (shared order page /orders/:id, customer My Orders, mother Incoming Orders)
+             delivery (Available Deliveries, My Deliveries)
+  shared/    ui (Button, Field, Toast, Dialog, EmptyState, ErrorBanner, Skeleton, StatusBadge, header)
+             lib (money, order statuses, 15 s polling helper, paged "Load more" list, idempotency key)
 ```
+
+Routes: customer `/browse`, `/browse/:id`, `/cart`, `/checkout`, `/orders`; mother `/my-meals`,
+`/incoming-orders`; delivery `/deliveries`, `/deliveries/mine`; every role `/orders/:id`.
+Polling screens (order page, Incoming Orders, Available Deliveries) use `pollStream` + `toPollState`
+in `shared/lib/poll.ts`: RxJS `timer` + `switchMap` bridged with `toSignal`, so polling stops when
+the page is destroyed; the order page also stops once the status is DELIVERED, REJECTED or CANCELLED.

@@ -1,5 +1,6 @@
 using HomeToHome.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace HomeToHome.Application.Abstractions;
 
@@ -14,6 +15,8 @@ public interface IAppDbContext
     DbSet<OrderStatusEvent> OrderStatusEvents { get; }
     DbSet<DeliveryRequest> DeliveryRequests { get; }
     DbSet<Notification> Notifications { get; }
+
+    DatabaseFacade Database { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

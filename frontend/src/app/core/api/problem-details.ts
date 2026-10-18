@@ -10,7 +10,13 @@ export type ProblemCode =
   | 'invalid_credentials'
   | 'rate_limited'
   | 'invalid_refresh_token'
-  | 'storage_unavailable';
+  | 'storage_unavailable'
+  | 'meal_unavailable'
+  | 'invalid_transition'
+  | 'order_changed'
+  | 'delivery_taken'
+  | 'request_closed'
+  | 'active_limit';
 
 export interface ProblemDetails {
   type: string;
@@ -19,6 +25,8 @@ export interface ProblemDetails {
   detail?: string;
   code: ProblemCode | (string & {});
   errors?: Record<string, string[]>;
+  /** Extension on 409 `meal_unavailable` from POST /orders. */
+  unavailableMealIds?: string[];
 }
 
 export function problemOf(error: unknown): ProblemDetails | null {

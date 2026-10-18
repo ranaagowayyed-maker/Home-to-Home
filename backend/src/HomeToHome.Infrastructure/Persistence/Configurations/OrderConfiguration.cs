@@ -15,7 +15,7 @@ internal sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
         });
 
         builder.Property(o => o.Number)
-            .HasDefaultValueSql($"nextval('{AppDbContext.OrderNumberSequence}')");
+            .HasDefaultValueSql($"nextval('{Order.NumberSequence}')");
         builder.Property(o => o.DeliveryAddress).HasMaxLength(300);
         builder.Property(o => o.CustomerPhone).HasMaxLength(20);
         builder.Property(o => o.Notes).HasMaxLength(500);

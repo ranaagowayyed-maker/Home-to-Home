@@ -50,6 +50,14 @@ public sealed partial class ExceptionToProblemDetailsHandler(
         details.Status = status;
         details.Detail = detail;
         details.Extensions["code"] = code;
+        if (exception is ConflictException conflict)
+        {
+            foreach (var (key, value) in conflict.Extensions)
+            {
+                details.Extensions[key] = value;
+            }
+        }
+
         return problemDetails.TryWriteAsync(new ProblemDetailsContext
         {
             HttpContext = httpContext,

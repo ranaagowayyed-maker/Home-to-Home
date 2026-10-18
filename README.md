@@ -59,6 +59,7 @@ Secrets are environment variables, never committed. The API reads:
 | `Cors__AllowedOrigins__0` | Only for local cross-origin development; not needed on Railway, where the web service proxies `/api` |
 | `RefreshCookie__SameSite` | `Lax` on Railway (same origin through the web service) |
 | `Storage__ServiceUrl`, `Storage__Bucket`, `Storage__AccessKey`, `Storage__SecretKey`, `Storage__PublicBaseUrl` | S3-compatible photo storage |
+| `Ordering__DeliveryFeeMinor`, `Ordering__Currency`, `Ordering__MaxActiveDeliveries` | Optional; default to 1500 (15.00), USD and 3 active deliveries per delivery person |
 | `Database__MigrateOnStartup` | `true` to apply migrations when the API starts |
 
 ## Deploy to Railway
