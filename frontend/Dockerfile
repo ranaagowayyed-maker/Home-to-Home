@@ -11,5 +11,7 @@ RUN npm run build
 FROM nginx:1.27-alpine
 ENV PORT=8080
 ENV API_UPSTREAM=http://localhost:5080
+# Railway's private-network DNS; use 127.0.0.11 under Docker Compose.
+ENV NGINX_RESOLVER=[fd12::10]
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist/frontend/browser /usr/share/nginx/html
