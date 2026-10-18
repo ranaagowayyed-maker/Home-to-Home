@@ -1,0 +1,135 @@
+<section class="mx-auto flex max-w-xl flex-col gap-6">
+  <header class="flex flex-col gap-2">
+    <a
+      routerLink="/my-meals"
+      class="inline-flex min-h-11 items-center text-sm font-medium text-brand-700"
+    >
+      ← My Meals
+    </a>
+    <h1 class="text-2xl font-bold">{{ id() ? 'Edit meal' : 'New meal' }}</h1>
+  </header>
+
+  @switch (loadState()) {
+    @case ('loading') {
+      <div class="flex flex-col gap-5" aria-label="Loading meal">
+        @for (row of [1, 2, 3, 4]; track row) {
+          <div class="flex flex-col gap-2">
+            <app-skeleton class="h-4 w-24" />
+            <app-skeleton class="h-11 w-full" />
+          </div>
+        }
+      </div>
+    }
+    @case ('forbidden') {
+      <app-error-banner [message]="forbiddenMessage" [retryable]="false" />
+    }
+    @case ('error') {
+      <app-error-banner message="Couldn't load the meal." (retry)="loadMeal()" />
+    }
+    @default {
+      @if (bannerError(); as message) {
+        <app-error-banner [message]="message" [retrying]="saving()" (retry)="save()" />
+      }
+
+      <form [formGroup]="form" class="flex flex-col gap-5" novalidate (ngSubmit)="save()">
+        <app-field label="Name" for="name" [control]="form.controls.name">
+          <input
+            id="name"
+            class="input"
+            formControlName="name"
+            maxlength="80"
+            placeholder="Stuffed Grape Leaves"
+            [attr.aria-invalid]="form.controls.name.touched && form.controls.name.invalid"
+            aria-describedby="name-error"
+          />
+        </app-field>
+
+        <app-field
+          label="Description"
+          for="description"
+          hint="Up to 500 characters."
+          [control]="form.controls.description"
+        >
+          <textarea
+            id="description"
+            class="input min-h-28"
+            formControlName="description"
+            maxlength="500"
+            rows="4"
+            [attr.aria-invalid]="
+              form.controls.description.touched && form.controls.description.invalid
+            "
+            aria-describedby="description-error description-hint"
+          ></textarea>
+        </app-field>
+
+        <div class="grid gap-5 sm:grid-cols-2">
+          <app-field label="Category" for="category" [control]="form.controls.category">
+            <select id="category" class="input" formControlName="category">
+              @for (category of categories; track category.value) {
+                <option [value]="category.value">{{ category.label }}</option>
+              }
+            </select>
+          </app-field>
+
+          <app-field
+            label="Price"
+            for="price"
+            [control]="form.controls.price"
+            [messages]="priceMessages"
+          >
+            <input
+              id="price"
+              class="input"
+              formControlName="price"
+              inputmode="decimal"
+              placeholder="12.50"
+              [attr.aria-invalid]="form.controls.price.touched && form.controls.price.invalid"
+              aria-describedby="price-error"
+            />
+          </app-field>
+        </div>
+
+        <app-field
+          label="Photo"
+          for="photo"
+          hint="JPEG or PNG, up to 5 MB."
+          [errorText]="photoError()"
+        >
+          <div class="flex items-center gap-4">
+            <img
+              [src]="photoUrl() ?? placeholder"
+              alt="Meal photo preview"
+              class="size-24 shrink-0 rounded-lg border border-stone-200 object-cover"
+              width="96"
+              height="96"
+            />
+            <label
+              class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-stone-300 bg-white px-4 text-sm font-semibold text-stone-800 hover:bg-stone-100 has-disabled:cursor-not-allowed has-disabled:opacity-60 has-focus-visible:ring-2 has-focus-visible:ring-brand-200"
+            >
+              @if (uploading()) {
+                <app-spinner />
+                Uploading…
+              } @else {
+                {{ photoUrl() ? 'Change photo' : 'Upload photo' }}
+              }
+              <input
+                id="photo"
+                type="file"
+                class="sr-only"
+                accept="image/jpeg,image/png"
+                aria-describedby="photo-error photo-hint"
+                [disabled]="uploading()"
+                (change)="onPhotoSelected($event)"
+              />
+            </label>
+          </div>
+        </app-field>
+
+        <button app-button type="submit" [loading]="saving()" [disabled]="uploading()">
+          {{ id() ? 'Save changes' : 'Save' }}
+        </button>
+      </form>
+    }
+  }
+</section>

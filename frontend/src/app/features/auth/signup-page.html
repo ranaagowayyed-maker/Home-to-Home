@@ -1,0 +1,100 @@
+<section class="mx-auto flex max-w-md flex-col gap-6">
+  <header class="flex flex-col gap-1">
+    <h1 class="text-2xl font-bold">Create your account</h1>
+    <p class="text-stone-600">
+      Already have one?
+      <a routerLink="/login" class="font-semibold text-brand-700 underline">Log in</a>
+    </p>
+  </header>
+
+  @if (bannerError(); as message) {
+    <app-error-banner [message]="message" [retrying]="submitting()" (retry)="submit()" />
+  }
+
+  <form [formGroup]="form" class="flex flex-col gap-5" novalidate (ngSubmit)="submit()">
+    <fieldset class="flex flex-col gap-2">
+      <legend class="mb-2 text-sm font-medium text-stone-800">I am a…</legend>
+      <div class="grid gap-2 sm:grid-cols-3">
+        @for (option of roleOptions; track option.value) {
+          <label
+            class="flex min-h-11 cursor-pointer flex-col rounded-lg border border-stone-300 bg-white p-3 has-checked:border-brand-600 has-checked:bg-brand-50 has-focus-visible:ring-2 has-focus-visible:ring-brand-200"
+          >
+            <input type="radio" class="sr-only" formControlName="role" [value]="option.value" />
+            <span class="font-semibold">{{ option.label }}</span>
+            <span class="text-xs text-stone-600">{{ option.description }}</span>
+          </label>
+        }
+      </div>
+    </fieldset>
+
+    <app-field label="Full name" for="name" [control]="form.controls.name">
+      <input
+        id="name"
+        class="input"
+        formControlName="name"
+        autocomplete="name"
+        [attr.aria-invalid]="form.controls.name.touched && form.controls.name.invalid"
+        aria-describedby="name-error"
+      />
+    </app-field>
+
+    @if (role() === 'MOTHER') {
+      <app-field label="Kitchen name" for="kitchenName" [control]="form.controls.kitchenName">
+        <input
+          id="kitchenName"
+          class="input"
+          formControlName="kitchenName"
+          placeholder="Fatima's Kitchen"
+          [attr.aria-invalid]="
+            form.controls.kitchenName.touched && form.controls.kitchenName.invalid
+          "
+          aria-describedby="kitchenName-error"
+        />
+      </app-field>
+    }
+
+    <app-field label="Email" for="email" [control]="form.controls.email">
+      <input
+        id="email"
+        type="email"
+        class="input"
+        formControlName="email"
+        autocomplete="email"
+        [attr.aria-invalid]="form.controls.email.touched && form.controls.email.invalid"
+        aria-describedby="email-error"
+      />
+    </app-field>
+
+    <app-field label="Phone" for="phone" [control]="form.controls.phone" [messages]="phoneMessages">
+      <input
+        id="phone"
+        type="tel"
+        class="input"
+        formControlName="phone"
+        autocomplete="tel"
+        [attr.aria-invalid]="form.controls.phone.touched && form.controls.phone.invalid"
+        aria-describedby="phone-error"
+      />
+    </app-field>
+
+    <app-field
+      label="Password"
+      for="password"
+      hint="At least 8 characters with a letter and a number."
+      [control]="form.controls.password"
+      [messages]="passwordMessages"
+    >
+      <input
+        id="password"
+        type="password"
+        class="input"
+        formControlName="password"
+        autocomplete="new-password"
+        [attr.aria-invalid]="form.controls.password.touched && form.controls.password.invalid"
+        aria-describedby="password-error password-hint"
+      />
+    </app-field>
+
+    <button app-button type="submit" [loading]="submitting()">Create account</button>
+  </form>
+</section>
