@@ -20,6 +20,8 @@ public sealed record MealBody(
     bool IsVisible,
     bool IsArchived);
 
+public sealed record BrowseMealBody(Guid Id, string Name, int PriceMinor, Guid MotherId, string KitchenName);
+
 public sealed record PagedBody<T>(List<T> Items, int Page, int PageSize, int Total);
 
 public sealed record ProblemBody(int Status, string Code, Dictionary<string, string[]>? Errors);

@@ -43,3 +43,13 @@ public sealed record MealDto(
         meal.IsArchived,
         meal.CreatedAt);
 }
+
+public sealed record BrowseMealDto(
+    Guid Id,
+    string Name,
+    string Description,
+    MealCategory Category,
+    int PriceMinor,
+    string? PhotoUrl,
+    Guid MotherId,
+    string KitchenName);

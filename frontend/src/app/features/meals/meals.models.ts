@@ -12,12 +12,7 @@ export interface Meal {
   createdAt: string;
 }
 
-export interface Paged<T> {
-  items: T[];
-  page: number;
-  pageSize: number;
-  total: number;
-}
+export type { Paged } from '../../core/api/paged';
 
 export interface MealInput {
   name: string;

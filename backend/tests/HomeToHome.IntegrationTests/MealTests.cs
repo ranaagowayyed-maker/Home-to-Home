@@ -159,4 +159,39 @@ public sealed class MealTests(ApiFactory factory)
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
     }
+
+    [Fact]
+    public async Task Customer_browses_only_visible_meals_of_available_kitchens()
+    {
+        var fatima = await _client.RegisterAsync("MOTHER", kitchenName: "Fatima's Kitchen");
+        var shown = await (await _client.SendAsync(
+            ApiClient.Authed(HttpMethod.Post, "/api/v1/meals", fatima, NewMeal("Molokhia")))).ReadAsync<MealBody>();
+        var hidden = await (await _client.SendAsync(
+            ApiClient.Authed(HttpMethod.Post, "/api/v1/meals", fatima, NewMeal("Hidden Sambousek")))).ReadAsync<MealBody>();
+        await _client.SendAsync(ApiClient.Authed(HttpMethod.Patch, $"/api/v1/meals/{hidden.Id}", fatima, new { isVisible = false }));
+        var sara = await _client.RegisterAsync("CUSTOMER");
+
+        var response = await _client.SendAsync(ApiClient.Authed(HttpMethod.Get, "/api/v1/meals?pageSize=50", sara));
+        var page = await response.ReadAsync<PagedBody<BrowseMealBody>>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var meal = Assert.Single(page.Items, m => m.Id == shown.Id);
+        Assert.Equal("Fatima's Kitchen", meal.KitchenName);
+        Assert.DoesNotContain(page.Items, m => m.Id == hidden.Id);
+
+        var detail = await _client.SendAsync(ApiClient.Authed(HttpMethod.Get, $"/api/v1/meals/{hidden.Id}", sara));
+        Assert.Equal(HttpStatusCode.NotFound, detail.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("MOTHER")]
+    [InlineData("DELIVERY")]
+    public async Task Only_customers_browse_meals(string role)
+    {
+        var session = await _client.RegisterAsync(role);
+
+        var response = await _client.SendAsync(ApiClient.Authed(HttpMethod.Get, "/api/v1/meals", session));
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
 }
