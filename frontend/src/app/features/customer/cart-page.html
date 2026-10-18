@@ -1,0 +1,112 @@
+<section class="flex flex-col gap-6">
+  <h1 class="text-2xl font-bold">Your cart</h1>
+
+  @if (cart.isEmpty()) {
+    <app-empty-state message="Your cart is empty. Browse meals.">
+      <a
+        routerLink="/browse"
+        class="inline-flex min-h-11 items-center justify-center rounded-lg bg-brand-700 px-4 text-sm font-semibold text-white hover:bg-brand-800"
+      >
+        Browse meals
+      </a>
+    </app-empty-state>
+    <button app-button type="button" [disabled]="true">Checkout</button>
+  } @else {
+    <p class="text-stone-600">
+      From <span class="font-semibold text-stone-900">{{ cart.kitchenName() }}</span>
+    </p>
+
+    @if (cart.hasUnavailable()) {
+      <div
+        class="flex flex-col gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800 sm:flex-row sm:items-center"
+        role="alert"
+      >
+        <p class="flex-1 text-sm font-medium">
+          Some meals are no longer available. Remove them to continue.
+        </p>
+        <button app-button variant="secondary" type="button" (click)="cart.removeUnavailable()">
+          Remove unavailable
+        </button>
+      </div>
+    }
+
+    <ul class="flex flex-col gap-3">
+      @for (item of cart.items(); track item.mealId) {
+        <li
+          class="flex flex-col gap-3 rounded-xl border bg-white p-4"
+          [class]="cart.unavailableIds().has(item.mealId) ? 'border-red-300' : 'border-stone-200'"
+        >
+          <div class="flex gap-4">
+            <img
+              [src]="item.photoUrl ?? placeholder"
+              [alt]="item.name"
+              class="size-16 shrink-0 rounded-lg object-cover"
+              width="64"
+              height="64"
+              loading="lazy"
+            />
+            <div class="flex min-w-0 flex-1 flex-col gap-1">
+              <h2 class="truncate font-semibold">{{ item.name }}</h2>
+              <p class="text-sm text-stone-600">{{ item.unitPriceMinor | money }} each</p>
+              @if (cart.unavailableIds().has(item.mealId)) {
+                <p class="text-sm font-medium text-red-700">No longer available</p>
+              }
+            </div>
+            <p class="font-semibold text-brand-800">
+              {{ item.unitPriceMinor * item.quantity | money }}
+            </p>
+          </div>
+          <div class="flex items-center gap-1">
+            <button
+              app-button
+              variant="secondary"
+              type="button"
+              [attr.aria-label]="'Decrease quantity of ' + item.name"
+              [disabled]="item.quantity <= min"
+              (click)="cart.setQuantity(item.mealId, item.quantity - 1)"
+            >
+              −
+            </button>
+            <output class="w-10 text-center font-semibold" aria-live="polite">
+              {{ item.quantity }}
+            </output>
+            <button
+              app-button
+              variant="secondary"
+              type="button"
+              [attr.aria-label]="'Increase quantity of ' + item.name"
+              [disabled]="item.quantity >= max"
+              (click)="cart.setQuantity(item.mealId, item.quantity + 1)"
+            >
+              +
+            </button>
+            <button
+              app-button
+              variant="danger-ghost"
+              type="button"
+              class="ml-auto"
+              [attr.aria-label]="'Remove ' + item.name"
+              (click)="cart.remove(item.mealId)"
+            >
+              Remove
+            </button>
+          </div>
+        </li>
+      }
+    </ul>
+
+    <div class="flex flex-col gap-4 rounded-xl border border-stone-200 bg-white p-4">
+      <app-cart-totals />
+      @if (cart.hasUnavailable()) {
+        <button app-button type="button" [disabled]="true">Checkout</button>
+      } @else {
+        <a
+          routerLink="/checkout"
+          class="inline-flex min-h-11 items-center justify-center rounded-lg bg-brand-700 px-4 text-sm font-semibold text-white hover:bg-brand-800"
+        >
+          Checkout
+        </a>
+      }
+    </div>
+  }
+</section>

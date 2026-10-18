@@ -1,0 +1,47 @@
+<section class="mx-auto flex max-w-md flex-col gap-6">
+  <header class="flex flex-col gap-1">
+    <h1 class="text-2xl font-bold">Log in</h1>
+    <p class="text-stone-600">
+      New here?
+      <a routerLink="/signup" class="font-semibold text-brand-700 underline">Create an account</a>
+    </p>
+  </header>
+
+  @if (bannerError(); as message) {
+    <app-error-banner [message]="message" [retrying]="submitting()" (retry)="submit()" />
+  }
+
+  <form [formGroup]="form" class="flex flex-col gap-5" novalidate (ngSubmit)="submit()">
+    <app-field label="Email" for="email" [control]="form.controls.email">
+      <input
+        id="email"
+        type="email"
+        class="input"
+        formControlName="email"
+        autocomplete="email"
+        [attr.aria-invalid]="form.controls.email.touched && form.controls.email.invalid"
+        aria-describedby="email-error"
+      />
+    </app-field>
+
+    <app-field label="Password" for="password" [control]="form.controls.password">
+      <input
+        id="password"
+        type="password"
+        class="input"
+        formControlName="password"
+        autocomplete="current-password"
+        [attr.aria-invalid]="form.controls.password.touched && form.controls.password.invalid"
+        aria-describedby="password-error"
+      />
+    </app-field>
+
+    @if (formError(); as message) {
+      <p class="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-800" role="alert">
+        {{ message }}
+      </p>
+    }
+
+    <button app-button type="submit" [loading]="submitting()">Log in</button>
+  </form>
+</section>

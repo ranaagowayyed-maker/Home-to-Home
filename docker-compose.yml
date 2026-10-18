@@ -1,0 +1,38 @@
+# Local dependencies for the API: PostgreSQL, Redis and MinIO (S3-compatible photo storage).
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: home_to_home
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports: ["5432:5432"]
+    volumes: [postgres-data:/var/lib/postgresql/data]
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports: ["9000:9000", "9001:9001"]
+    volumes: [minio-data:/data]
+
+  # Creates the public-read photo bucket and allows browser uploads from the dev server.
+  minio-setup:
+    image: minio/mc:latest
+    depends_on: [minio]
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 minioadmin minioadmin; do sleep 1; done;
+      mc mb --ignore-existing local/meal-photos;
+      mc anonymous set download local/meal-photos;
+      "
+
+volumes:
+  postgres-data:
+  minio-data:
