@@ -64,6 +64,24 @@ public sealed class MealService(
         return new Paged<MealDto>(meals.Select(MealDto.From).ToList(), page.SafePage, page.SafePageSize, total);
     }
 
+    public async Task<Paged<BrowseMealDto>> BrowseAsync(PageRequest page, CancellationToken cancellationToken)
+    {
+        var query = BrowsableMeals();
+        var total = await query.CountAsync(cancellationToken);
+        var meals = await query
+            .OrderByDescending(m => m.CreatedAt)
+            .ThenBy(m => m.Id)
+            .Skip((page.SafePage - 1) * page.SafePageSize)
+            .Take(page.SafePageSize)
+            .Select(ToBrowseDto)
+            .ToListAsync(cancellationToken);
+        return new Paged<BrowseMealDto>(meals, page.SafePage, page.SafePageSize, total);
+    }
+
+    public async Task<BrowseMealDto> GetBrowsableAsync(Guid id, CancellationToken cancellationToken) =>
+        await BrowsableMeals().Where(m => m.Id == id).Select(ToBrowseDto).SingleOrDefaultAsync(cancellationToken)
+        ?? throw new NotFoundException("Meal not found.");
+
     public async Task<MealDto> UpdateAsync(Guid id, UpdateMealRequest request, CancellationToken cancellationToken)
     {
         await updateValidator.EnsureValidAsync(request, cancellationToken);
@@ -91,6 +109,12 @@ public sealed class MealService(
         await db.SaveChangesAsync(cancellationToken);
         return MealDto.From(meal);
     }
+
+    private static readonly System.Linq.Expressions.Expression<Func<Meal, BrowseMealDto>> ToBrowseDto = m =>
+        new BrowseMealDto(m.Id, m.Name, m.Description, m.Category, m.PriceMinor, m.PhotoUrl, m.MotherId, m.Mother!.KitchenName);
+
+    private IQueryable<Meal> BrowsableMeals() =>
+        db.Meals.AsNoTracking().Where(m => m.IsVisible && !m.IsArchived && m.Mother!.IsAvailable);
 
     private void EnsureOwnPhoto(string? photoUrl)
     {
