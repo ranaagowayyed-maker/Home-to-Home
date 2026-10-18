@@ -4,6 +4,8 @@ namespace HomeToHome.Domain.Entities;
 
 public class Order
 {
+    public const string NumberSequence = "order_numbers";
+
     public Guid Id { get; set; }
     public int Number { get; set; }
     public Guid CustomerId { get; set; }

@@ -1,0 +1,81 @@
+<section class="flex flex-col gap-6">
+  <header class="flex flex-wrap items-end justify-between gap-2">
+    <div class="flex flex-col gap-1">
+      <h1 class="text-2xl font-bold">Available Deliveries</h1>
+      <p class="text-sm text-stone-600">Refreshes every 15 seconds.</p>
+    </div>
+    @if (list(); as list) {
+      <a
+        routerLink="/deliveries/mine"
+        class="inline-flex min-h-11 items-center text-sm font-semibold text-brand-700"
+        data-testid="active-count"
+      >
+        Active: {{ list.activeDeliveries }} / {{ list.maxActiveDeliveries }}
+      </a>
+    }
+  </header>
+
+  @if (banner(); as banner) {
+    <app-error-banner
+      [message]="banner.message"
+      [retryable]="!!banner.retry"
+      [retrying]="acceptingId() !== null"
+      (retry)="banner.retry?.()"
+    />
+  }
+
+  @let s = state();
+  @if (s.loading) {
+    <app-order-list-skeleton />
+  } @else if (list(); as list) {
+    @if (s.error) {
+      <app-error-banner message="Couldn't refresh deliveries." (retry)="reload$.next()" />
+    }
+    @if (list.items.length === 0) {
+      <app-empty-state message="No deliveries right now. Check back soon." />
+    } @else {
+      <ul class="flex flex-col gap-3">
+        @for (request of list.items; track request.id) {
+          <li class="flex flex-col gap-3 rounded-xl border border-stone-200 bg-white p-4">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex min-w-0 flex-col gap-1">
+                <h2 class="font-semibold">{{ request.kitchenName }}</h2>
+                <p class="text-sm text-stone-600">
+                  {{ request.kitchenCity ?? 'Unknown area' }} →
+                  {{ request.customerCity ?? 'Unknown area' }}
+                </p>
+                <p class="text-sm text-stone-600">
+                  Order #{{ request.orderNumber }} · {{ request.itemCount }}
+                  {{ request.itemCount === 1 ? 'item' : 'items' }}
+                </p>
+              </div>
+              <p class="text-right">
+                <span class="block text-xs text-stone-500">Delivery fee</span>
+                <span class="font-semibold text-brand-800">
+                  {{ request.deliveryFeeMinor | money }}
+                </span>
+              </p>
+            </div>
+            <button
+              app-button
+              type="button"
+              [loading]="acceptingId() === request.id"
+              [disabled]="atLimit() || acceptingId() !== null"
+              [attr.aria-describedby]="atLimit() ? 'limit-' + request.id : null"
+              (click)="accept(request)"
+            >
+              Accept Delivery
+            </button>
+            @if (atLimit()) {
+              <p [id]="'limit-' + request.id" class="text-sm text-stone-600">
+                {{ limitMessage }}
+              </p>
+            }
+          </li>
+        }
+      </ul>
+    }
+  } @else {
+    <app-error-banner message="Couldn't load deliveries." (retry)="reload$.next()" />
+  }
+</section>

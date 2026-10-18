@@ -6,6 +6,7 @@ using HomeToHome.Api.Controllers;
 using HomeToHome.Api.Middleware;
 using HomeToHome.Application;
 using HomeToHome.Application.Abstractions;
+using HomeToHome.Application.Orders;
 using HomeToHome.Infrastructure;
 using HomeToHome.Infrastructure.Auth;
 using HomeToHome.Infrastructure.Persistence;
@@ -29,6 +30,7 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
+builder.Services.Configure<OrderingOptions>(builder.Configuration.GetSection(OrderingOptions.SectionName));
 builder.Services.Configure<RefreshCookieOptions>(builder.Configuration.GetSection(RefreshCookieOptions.SectionName));
 
 builder.Services

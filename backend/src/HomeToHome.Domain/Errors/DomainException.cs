@@ -9,7 +9,12 @@ public sealed class NotFoundException(string message) : DomainException("not_fou
 
 public sealed class ForbiddenException(string message) : DomainException("forbidden", message);
 
-public sealed class ConflictException(string code, string message) : DomainException(code, message);
+public sealed class ConflictException(string code, string message, IReadOnlyDictionary<string, object?>? extensions = null)
+    : DomainException(code, message)
+{
+    /// <summary>Extra machine-readable fields returned with the error, for example the unavailable meal IDs.</summary>
+    public IReadOnlyDictionary<string, object?> Extensions { get; } = extensions ?? new Dictionary<string, object?>();
+}
 
 public sealed class UnauthenticatedException(string code, string message) : DomainException(code, message);
 

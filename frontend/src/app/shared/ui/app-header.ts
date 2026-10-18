@@ -2,17 +2,29 @@ import { ChangeDetectionStrategy, Component, computed, inject, input, signal } f
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { Role, ROLE_HOME, User } from '../../core/auth/auth.models';
 import { AuthService } from '../../core/auth/auth.service';
+import { CartService } from '../../core/cart/cart.service';
 import { Spinner } from './spinner';
 
 interface NavLink {
   label: string;
   path: string;
+  /** Only highlight on an exact URL match (a parent of another nav link). */
+  exact?: boolean;
 }
 
 const ROLE_NAV: Record<Role, NavLink[]> = {
-  CUSTOMER: [{ label: 'Browse Meals', path: ROLE_HOME.CUSTOMER }],
-  MOTHER: [{ label: 'My Meals', path: ROLE_HOME.MOTHER }],
-  DELIVERY: [{ label: 'Available Deliveries', path: ROLE_HOME.DELIVERY }],
+  CUSTOMER: [
+    { label: 'Browse Meals', path: ROLE_HOME.CUSTOMER },
+    { label: 'My Orders', path: '/orders', exact: true },
+  ],
+  MOTHER: [
+    { label: 'My Meals', path: ROLE_HOME.MOTHER },
+    { label: 'Incoming Orders', path: '/incoming-orders' },
+  ],
+  DELIVERY: [
+    { label: 'Available Deliveries', path: ROLE_HOME.DELIVERY, exact: true },
+    { label: 'My Deliveries', path: '/deliveries/mine' },
+  ],
 };
 
 @Component({
@@ -34,12 +46,45 @@ const ROLE_NAV: Record<Role, NavLink[]> = {
           <a
             [routerLink]="link.path"
             routerLinkActive="bg-brand-50 text-brand-800"
+            [routerLinkActiveOptions]="{ exact: !!link.exact }"
             class="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-stone-700 hover:bg-stone-100"
           >
             {{ link.label }}
           </a>
         }
       </nav>
+      @if (user().role === 'CUSTOMER') {
+        <a
+          routerLink="/cart"
+          class="relative inline-flex size-11 items-center justify-center rounded-lg text-stone-700 hover:bg-stone-100"
+          [attr.aria-label]="cartLabel()"
+        >
+          <svg
+            class="size-6"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            aria-hidden="true"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M3 3h2l2.4 12.2a2 2 0 0 0 2 1.8h7.7a2 2 0 0 0 2-1.6L21 8H6"
+            />
+            <circle cx="10" cy="20.5" r="1" />
+            <circle cx="17" cy="20.5" r="1" />
+          </svg>
+          @if (cart.count() > 0) {
+            <span
+              class="absolute top-0.5 right-0.5 flex min-w-5 items-center justify-center rounded-full bg-brand-700 px-1 text-xs font-bold text-white"
+              data-testid="cart-badge"
+            >
+              {{ cart.count() }}
+            </span>
+          }
+        </a>
+      }
       <div class="relative">
         <button
           type="button"
@@ -95,6 +140,7 @@ const ROLE_NAV: Record<Role, NavLink[]> = {
 export class AppHeader {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  protected readonly cart = inject(CartService);
 
   readonly user = input.required<User>();
 
@@ -102,6 +148,10 @@ export class AppHeader {
   protected readonly loggingOut = signal(false);
   protected readonly nav = computed(() => ROLE_NAV[this.user().role]);
   protected readonly home = computed(() => ROLE_HOME[this.user().role]);
+  protected readonly cartLabel = computed(() => {
+    const count = this.cart.count();
+    return count === 0 ? 'Cart, empty' : `Cart, ${count} ${count === 1 ? 'item' : 'items'}`;
+  });
   protected readonly initial = computed(() => this.user().name.charAt(0).toUpperCase());
 
   protected toggleMenu(event: MouseEvent): void {
@@ -112,6 +162,8 @@ export class AppHeader {
   protected logout(): void {
     this.loggingOut.set(true);
     this.auth.logout().subscribe(() => {
+      // The cart lives in this browser; do not hand it to the next person who logs in here.
+      this.cart.clear();
       this.loggingOut.set(false);
       this.menuOpen.set(false);
       void this.router.navigateByUrl('/');

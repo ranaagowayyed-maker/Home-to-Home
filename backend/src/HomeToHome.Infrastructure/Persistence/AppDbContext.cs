@@ -6,8 +6,6 @@ namespace HomeToHome.Infrastructure.Persistence;
 
 public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options), IAppDbContext
 {
-    public const string OrderNumberSequence = "order_numbers";
-
     public DbSet<User> Users => Set<User>();
     public DbSet<MotherProfile> MotherProfiles => Set<MotherProfile>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
@@ -21,7 +19,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasPostgresExtension("pg_trgm");
-        modelBuilder.HasSequence<int>(OrderNumberSequence).StartsAt(1000);
+        modelBuilder.HasSequence<int>(Order.NumberSequence).StartsAt(1000);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
     }
 
