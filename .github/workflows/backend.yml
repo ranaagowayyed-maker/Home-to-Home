@@ -1,0 +1,52 @@
+name: Backend
+
+on:
+  pull_request:
+    paths: ["backend/**", ".github/workflows/backend.yml"]
+  push:
+    branches: [main]
+    paths: ["backend/**", ".github/workflows/backend.yml"]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  build-and-unit-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - run: dotnet restore HomeToHome.sln
+      - name: Check formatting
+        run: dotnet format HomeToHome.sln --verify-no-changes --no-restore
+      - name: Build (warnings as errors)
+        run: dotnet build HomeToHome.sln --no-restore -c Release
+      - name: Unit tests
+        run: dotnet test tests/HomeToHome.UnitTests --no-build --configuration Release
+      - name: Check migrations match the model
+        run: |
+          dotnet tool restore
+          dotnet ef migrations has-pending-model-changes -p src/HomeToHome.Infrastructure -s src/HomeToHome.Api --no-build --configuration Release
+
+  integration-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Integration tests (Testcontainers PostgreSQL)
+        run: dotnet test tests/HomeToHome.IntegrationTests -c Release
+
+  docker-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build API image
+        run: docker build -t home-to-home-api:${{ github.sha }} .

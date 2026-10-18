@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Version | v1.0 |
+| Version | v1.1 |
 | Date | 2026-10-18 |
 | Owner | Rana |
 | Status | Draft |
@@ -12,7 +12,7 @@ This document describes how the MVP is built: the runtime pieces, how they are d
 
 ## 1. Architectural Principles
 
-1. **One frontend, one API, one database.** A single React SPA talks to a single ASP.NET Core API, which owns a single PostgreSQL database. No microservices, no message queues, no background workers in v1.
+1. **One frontend, one API, one database.** A single Angular SPA talks to a single ASP.NET Core API, which owns a single PostgreSQL database. No microservices, no message queues, no background workers in v1.
 2. **The backend owns every rule.** Prices, totals, permissions and status transitions are decided on the server. The UI only renders the actions the server would allow.
 3. **One state machine for orders.** Every status change goes through `OrderStateMachine` in the application layer. No other code writes `Order.Status`.
 4. **Correctness through the database.** Exclusive delivery acceptance and idempotent order placement are enforced with PostgreSQL transactions, row locks, conditional updates and unique constraints, not with in-process locks.
@@ -51,7 +51,7 @@ Out of the system boundary in v1: payment gateways, maps, SMS and email provider
 ```mermaid
 flowchart TB
     subgraph browser["User's browser (phone first)"]
-        spa["React 18 SPA<br/>TypeScript, Tailwind, Vite build"]
+        spa["Angular 20 SPA<br/>TypeScript, Tailwind, Angular CLI build"]
     end
 
     subgraph vercel["Vercel"]
@@ -82,7 +82,7 @@ flowchart TB
 
 | Container | Technology | Hosting | Responsibility |
 |---|---|---|---|
-| Web app | React 18, TypeScript, Tailwind CSS, Vite | Vercel | Role-based screens, forms, cart, polling of order status and notifications |
+| Web app | Angular 20, TypeScript, Tailwind CSS, Angular CLI (esbuild) | Vercel | Role-based screens, forms, cart, polling of order status and notifications |
 | API | .NET 10, C#, ASP.NET Core Web API, EF Core | Railway (Docker container) | Authentication, authorization, business rules, state machine, REST API |
 | Database | PostgreSQL | Railway | All persistent data; daily backups, 30-day retention |
 | Cache | Redis | Railway | Login rate limiting, request rate limiting, short-lived browse cache |
@@ -93,7 +93,7 @@ flowchart TB
 
 | Environment | Frontend | API, PostgreSQL, Redis | Photos | Deployed when |
 |---|---|---|---|---|
-| Local | `vite dev` on port 5173 | `dotnet run` plus Docker Compose (PostgreSQL, Redis, MinIO) | MinIO container | Developer machine |
+| Local | `ng serve` on port 4200, proxying `/api` to the API on port 5080 | `dotnet run` plus Docker Compose (PostgreSQL, Redis, MinIO) | MinIO container | Developer machine |
 | Staging | Vercel preview and staging domain | Railway staging environment | Staging bucket | Every merge to the default branch |
 | Production | Vercel production domain | Railway production environment | Production bucket | Manual promotion after staging validation |
 
@@ -174,49 +174,54 @@ Every request passes through, in order: request ID and structured JSON logging �
 
 ## 5. Frontend Architecture
 
-A single Vite-built SPA with routes grouped by role. Server state is handled by TanStack Query (chosen as the default because it gives caching, retries and the 15-second polling the PRD requires without custom code); local UI state stays in React state and context.
+A single Angular 20 SPA built with the Angular CLI (esbuild application builder) and routes grouped by role. Every component is standalone and uses `OnPush` change detection; component and service state lives in signals. Server data is loaded with `HttpClient` through small per-feature API services; polling screens use an RxJS `timer(0, 15000)` piped through `switchMap`, exposed to templates with `toSignal`, which gives the 15-second refresh the PRD requires without a client cache library.
 
 ```mermaid
 flowchart TB
     subgraph app["src/app"]
-        router["Router<br/>public, customer, mother, delivery route groups"]
-        guard["RoleGuard<br/>redirects to role home on mismatch"]
-        providers["Providers<br/>QueryClient, AuthProvider, CartProvider, Toasts"]
+        router["app.routes.ts<br/>public, customer, mother, delivery route groups (lazy)"]
+        guard["authGuard, roleGuard<br/>redirect to role home on mismatch"]
+        config["app.config.ts<br/>provideRouter, provideHttpClient(withInterceptors),<br/>provideAppInitializer (session restore)"]
     end
 
-    subgraph features["src/features"]
-        auth["auth<br/>Sign up, Log in"]
-        meals["meals<br/>Browse, Meal detail, My Meals, Meal form"]
-        cart["cart<br/>Cart, Checkout"]
-        orders["orders<br/>Tracking, Incoming Orders, Order history"]
-        deliveries["deliveries<br/>Available Deliveries, My Deliveries"]
-        notif["notifications<br/>Bell, list"]
-        profile["profile<br/>Edit profile, availability toggle"]
+    subgraph core["src/app/core"]
+        auth["auth<br/>AuthService (signals), guards"]
+        http["interceptors<br/>Bearer token, withCredentials for /auth,<br/>silent refresh on 401 then retry"]
+        api["api<br/>ProblemDetails type, field-error mapping"]
     end
 
-    subgraph shared["src/shared"]
-        api["api client<br/>fetch wrapper, Bearer token,<br/>silent refresh on 401, idempotency keys"]
-        ui["ui components<br/>Button, Field, Toast, EmptyState,<br/>ErrorBanner, Skeleton, StatusBadge, Dialog"]
-        hooks["hooks and utils<br/>formatMoney, useDebounce"]
+    subgraph features["src/app/features"]
+        fauth["auth<br/>Landing, Sign up, Log in"]
+        meals["meals<br/>My Meals, Meal form, photo upload"]
+        customer["customer<br/>Browse Meals (Phase 2: detail, cart, checkout)"]
+        delivery["delivery<br/>Available Deliveries (Phase 2)"]
+        later["orders, notifications, profile<br/>(Phases 2 and 3)"]
+    end
+
+    subgraph shared["src/app/shared"]
+        ui["ui<br/>Button, Field, Dialog, Toast, EmptyState,<br/>ErrorBanner, Skeleton, Header"]
+        lib["lib<br/>formatMoney"]
     end
 
     router --> guard --> features
-    providers --> features
-    features --> api
+    config --> core
+    features --> core
     features --> ui
-    features --> hooks
+    features --> lib
 ```
 
 | Concern | Decision |
 |---|---|
-| Routing | React Router; route groups per role; role home: customer → Browse Meals, mother → My Meals, delivery → Available Deliveries |
-| Server state | TanStack Query; `refetchInterval: 15000` on order detail, incoming orders, available deliveries and notifications |
-| Auth tokens | Access token kept in memory; refresh token in an `HttpOnly`, `Secure`, `SameSite=None` cookie scoped to `/api/v1/auth` |
-| Cart | `CartProvider` persisted to `localStorage`; holds meals from one mother only; prices re-checked by the server at checkout |
-| Forms | Controlled forms with inline field validation mirroring the server rules; the server remains the authority |
+| Framework | Angular 20, standalone components only, signals for state, built-in control flow (`@if`, `@for`), `OnPush` everywhere |
+| Routing | Angular Router with lazy-loaded route groups per role; `roleGuard` sends a user to their role home (customer → Browse Meals, mother → My Meals, delivery → Available Deliveries) |
+| Server state | Per-feature services over `HttpClient`; polling with RxJS `timer` + `switchMap` (15 s for order detail, incoming orders, available deliveries and notifications) bridged to templates with `toSignal` |
+| Auth tokens | Access token kept in memory in `AuthService`; refresh token in an `HttpOnly`, `Secure`, `SameSite=None` cookie scoped to `/api/v1/auth`; a functional HTTP interceptor refreshes once on 401 and retries; `provideAppInitializer` restores the session on load |
+| Cart | Signal-based `CartService` persisted to `localStorage`; holds meals from one mother only; prices re-checked by the server at checkout (Phase 2) |
+| Forms | Typed reactive forms with inline validators mirroring the server rules; server 422 `errors` are mapped onto the matching form controls; the server remains the authority |
 | Styling | Tailwind CSS with shared tokens for status colors so each status looks the same in every role's view |
 | Feedback | Every server action disables its control and shows a spinner; every success shows a toast; every failure shows a banner with Retry |
-| Analytics | A thin `track(event, props)` wrapper around the PostHog or Mixpanel SDK |
+| Testing | Karma and Jasmine with headless Chrome through the Angular CLI (`ng test`); ESLint through `angular-eslint`; Prettier |
+| Analytics | A thin `track(event, props)` wrapper around the PostHog or Mixpanel SDK (Phase 4) |
 
 ## 6. Authentication and Authorization
 
@@ -538,8 +543,8 @@ Conventions: list endpoints take `page` and `pageSize` (default 20, maximum 50) 
 
 ```mermaid
 flowchart LR
-    pr["Pull request"] --> fe["Frontend job<br/>npm ci, ESLint, Prettier check,<br/>tsc --noEmit, Vitest, vite build"]
-    pr --> be["Backend job<br/>dotnet format --verify-no-changes,<br/>dotnet build (warnings as errors),<br/>xUnit unit tests"]
+    pr["Pull request"] --> fe["Frontend job<br/>npm ci, ESLint, Prettier check,<br/>ng test (Karma, headless Chrome), ng build"]
+    pr --> be["Backend job<br/>dotnet format --verify-no-changes,<br/>dotnet build (warnings as errors),<br/>xUnit unit tests, pending-migration check,<br/>Docker image build"]
     pr --> it["Integration job<br/>WebApplicationFactory + Testcontainers<br/>(auth, orders, state machine, accept race)"]
     fe --> gate{"All green?"}
     be --> gate
@@ -569,34 +574,33 @@ home-to-home/
 │   └── speckit-commands.md
 ├── docker-compose.yml                # local PostgreSQL, Redis and MinIO
 ├── frontend/
-│   ├── index.html
+│   ├── angular.json
 │   ├── package.json
-│   ├── vite.config.ts
-│   ├── tailwind.config.ts
-│   ├── tsconfig.json
-│   ├── .env.example                  # VITE_API_URL, VITE_ANALYTICS_KEY
+│   ├── proxy.conf.json               # ng serve: /api → http://localhost:5080
+│   ├── vercel.json                   # SPA rewrite to index.html
+│   ├── karma.conf.js                 # headless Chrome launcher for CI
+│   ├── eslint.config.js
 │   └── src/
-│       ├── main.tsx
-│       ├── app/
-│       │   ├── router.tsx            # public, customer, mother and delivery route groups
-│       │   ├── RoleGuard.tsx
-│       │   └── providers/            # QueryClient, AuthProvider, CartProvider, ToastProvider
-│       ├── features/
-│       │   ├── auth/                 # SignUpPage, LoginPage, useAuth
-│       │   ├── meals/                # BrowsePage, MealDetailPage, MyMealsPage, MealForm, PhotoUpload
-│       │   ├── cart/                 # CartPage, CheckoutPage, cartStore
-│       │   ├── orders/               # OrderTrackingPage, IncomingOrdersPage, OrderHistoryPage, StatusTimeline
-│       │   ├── deliveries/           # AvailableDeliveriesPage, MyDeliveriesPage
-│       │   ├── notifications/        # NotificationBell, NotificationList
-│       │   └── profile/              # ProfilePage, AvailabilityToggle
-│       │       # each feature folder holds its components, api.ts (queries and mutations),
-│       │       # types.ts and *.test.tsx next to the code they test
-│       ├── shared/
-│       │   ├── api/                  # client.ts (fetch, token refresh, errors), queryKeys.ts
-│       │   ├── ui/                   # Button, Field, Dialog, Toast, EmptyState, ErrorBanner, Skeleton, StatusBadge
-│       │   ├── lib/                  # formatMoney, useDebounce, analytics
-│       │   └── types/                # shared API types (Role, OrderStatus, ProblemDetails)
-│       └── test/                     # Vitest setup and test utilities
+│       ├── main.ts
+│       ├── index.html
+│       ├── styles.css                # Tailwind entry and design tokens
+│       ├── environments/             # apiUrl, currency
+│       └── app/
+│           ├── app.config.ts         # router, HttpClient + interceptors, session restore
+│           ├── app.routes.ts         # public, customer, mother and delivery route groups
+│           ├── core/
+│           │   ├── auth/             # AuthService, authGuard, roleGuard, auth interceptor
+│           │   └── api/              # ProblemDetails type, field-error mapping
+│           ├── features/
+│           │   ├── auth/             # landing, sign-up, login pages
+│           │   ├── meals/            # my-meals page, meal-form page, MealsApi
+│           │   ├── customer/         # browse page (Phase 2: meal detail, cart, checkout)
+│           │   └── delivery/         # available-deliveries page (Phase 2: my deliveries)
+│           │       # orders, notifications and profile folders arrive in Phases 2 and 3;
+│           │       # each feature folder holds its components, API service, types and *.spec.ts
+│           └── shared/
+│               ├── ui/               # button, field, dialog, toast, empty-state, error-banner, skeleton, header
+│               └── lib/              # formatMoney
 └── backend/
     ├── HomeToHome.sln
     ├── Directory.Build.props         # nullable enabled, warnings as errors, analyzers, XML docs
@@ -642,7 +646,7 @@ home-to-home/
 | AD-04 | Polling every 15 seconds for status and notifications | Meets the PRD's 15-second requirement with plain HTTP; no connection state on the API | SignalR or WebSockets (deferred to v2 with live tracking) |
 | AD-05 | Photos uploaded directly to object storage with pre-signed URLs | Photos survive redeploys on Railway; API does not carry file traffic | Local disk on the API container (lost on redeploy) |
 | AD-06 | Refresh token in an HttpOnly cookie, access token in memory | Refresh token cannot be read by scripts; short access token limits exposure | Both tokens in localStorage |
-| AD-07 | TanStack Query for server state | Built-in caching, retries and polling remove custom code in every screen | Hand-written fetch hooks or Redux |
+| AD-07 | Angular 20 with signals and RxJS polling for server state | Requested by the owner; signals cover component state and `timer` + `switchMap` covers the 15-second polling without an extra library | React 18 with TanStack Query (the v1.0 draft); NgRx (more ceremony than the MVP needs) |
 | AD-08 | Notifications written in the same transaction as their event | No event bus or outbox needed; a notification never exists for a change that rolled back | Message queue |
 
 ## 17. Revision History
@@ -650,3 +654,4 @@ home-to-home/
 | Version | Date | Author | Changes |
 |---|---|---|---|
 | v1.0 | 2026-10-18 | Rana | Initial architecture created from PRD v1.0 |
+| v1.1 | 2026-10-18 | Rana | Frontend changed from React 18 to Angular 20 (sections 1, 3, 5, 14, 15 and AD-07); local Redis is optional, with an in-memory login limiter fallback |
