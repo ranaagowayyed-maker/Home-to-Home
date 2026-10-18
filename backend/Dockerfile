@@ -12,8 +12,8 @@ RUN dotnet publish src/HomeToHome.Api/HomeToHome.Api.csproj -c Release -o /app -
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
-ENV ASPNETCORE_HTTP_PORTS=8080
 EXPOSE 8080
 COPY --from=build /app .
 USER $APP_UID
-ENTRYPOINT ["dotnet", "HomeToHome.Api.dll"]
+# Railway injects PORT; default to 8080 elsewhere.
+ENTRYPOINT ["/bin/sh", "-c", "ASPNETCORE_HTTP_PORTS=${PORT:-8080} exec dotnet HomeToHome.Api.dll"]
