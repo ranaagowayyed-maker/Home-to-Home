@@ -31,10 +31,10 @@ The dev proxy target lives in `proxy.conf.json`.
 
 ## Deployment
 
-`vercel.json` rewrites every path to `index.html` so deep links work. The refresh token is an
-`HttpOnly` cookie scoped to `/api/v1/auth`, sent with `withCredentials`. If the API is served from
-a different origin, change `apiUrl` to its absolute URL and make sure the API allows credentialed
-CORS from the frontend origin.
+The `Dockerfile` builds the app and serves it with nginx (`nginx.conf.template`). nginx falls back to
+`index.html` so deep links work, and forwards `/api/*` to `API_UPSTREAM` (the API's private
+address on Railway), so the app and API share one origin and the `HttpOnly` refresh cookie stays
+first-party. See "Deploy to Railway" in the root README.
 
 ## Layout
 

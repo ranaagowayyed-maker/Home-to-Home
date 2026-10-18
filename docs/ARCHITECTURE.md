@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Version | v1.1 |
+| Version | v1.2 |
 | Date | 2026-10-18 |
 | Owner | Rana |
 | Status | Draft |
@@ -54,11 +54,8 @@ flowchart TB
         spa["Angular 20 SPA<br/>TypeScript, Tailwind, Angular CLI build"]
     end
 
-    subgraph vercel["Vercel"]
-        cdn["Static hosting and CDN<br/>index.html, JS, CSS"]
-    end
-
     subgraph railway["Railway (one project, staging and production environments)"]
+        web["Web service (public domain)<br/>nginx: serves the SPA,<br/>proxies /api over private network"]
         api["ASP.NET Core Web API<br/>.NET 10 container<br/>REST /api/v1, OpenAPI"]
         pg[("PostgreSQL<br/>primary data")]
         redis[("Redis<br/>rate limits, browse cache")]
@@ -68,22 +65,22 @@ flowchart TB
     ph["PostHog or Mixpanel"]
     gh["GitHub Actions<br/>CI/CD"]
 
-    cdn -->|"Serves app bundle"| spa
-    spa -->|"HTTPS JSON, Bearer JWT"| api
+    web -->|"Serves app bundle"| spa
+    spa -->|"HTTPS JSON /api, Bearer JWT (same origin)"| web
+    web -->|"Private network"| api
     spa -->|"PUT photo with pre-signed URL"| s3
     spa -->|"Load photos by URL"| s3
     spa -->|"Analytics events"| ph
     api -->|"EF Core, Npgsql"| pg
     api -->|"StackExchange.Redis"| redis
     api -->|"Issue pre-signed URLs"| s3
-    gh -->|"Deploy frontend"| vercel
-    gh -->|"Build image, run migrations, deploy"| api
+    gh -->|"Checks gate merges; Railway deploys from GitHub"| railway
 ```
 
 | Container | Technology | Hosting | Responsibility |
 |---|---|---|---|
-| Web app | Angular 20, TypeScript, Tailwind CSS, Angular CLI (esbuild) | Vercel | Role-based screens, forms, cart, polling of order status and notifications |
-| API | .NET 10, C#, ASP.NET Core Web API, EF Core | Railway (Docker container) | Authentication, authorization, business rules, state machine, REST API |
+| Web app | Angular 20, TypeScript, Tailwind CSS, Angular CLI (esbuild), served by nginx | Railway (Docker container, public domain) | Role-based screens, forms, cart, polling of order status and notifications |
+| API | .NET 10, C#, ASP.NET Core Web API, EF Core | Railway (Docker container, private network only) | Authentication, authorization, business rules, state machine, REST API |
 | Database | PostgreSQL | Railway | All persistent data; daily backups, 30-day retention |
 | Cache | Redis | Railway | Login rate limiting, request rate limiting, short-lived browse cache |
 | Photo storage | S3-compatible bucket (for example Cloudflare R2 or AWS S3) | Managed provider | Meal photos uploaded directly from the browser |
@@ -94,10 +91,12 @@ flowchart TB
 | Environment | Frontend | API, PostgreSQL, Redis | Photos | Deployed when |
 |---|---|---|---|---|
 | Local | `ng serve` on port 4200, proxying `/api` to the API on port 5080 | `dotnet run` plus Docker Compose (PostgreSQL, Redis, MinIO) | MinIO container | Developer machine |
-| Staging | Vercel preview and staging domain | Railway staging environment | Staging bucket | Every merge to the default branch |
-| Production | Vercel production domain | Railway production environment | Production bucket | Manual promotion after staging validation |
+| Staging | Railway staging environment, web service | Railway staging environment | Staging bucket | Every merge to the default branch |
+| Production | Railway production environment, web service | Railway production environment | Production bucket | Manual promotion after staging validation |
 
-Configuration and secrets (connection strings, JWT signing key, bucket credentials, `DELIVERY_FEE_MINOR`, `CURRENCY`, allowed CORS origin) are environment variables on Vercel and Railway and are never committed.
+Configuration and secrets (connection strings, JWT signing key, bucket credentials, `DELIVERY_FEE_MINOR`, `CURRENCY`) are Railway service variables and are never committed.
+
+Everything runs in one Railway project. Only the web service has a public domain: its nginx serves the built SPA and forwards `/api/*` to the API over Railway's private network, so the browser talks to a single origin. That keeps the refresh-token cookie first-party (`SameSite=Lax`), removes the need for CORS in deployed environments, and keeps the API off the public internet. nginx passes the edge's `X-Forwarded-For` through unchanged so the API rate-limits by the real client address. Step-by-step setup is in the README's "Deploy to Railway" section.
 
 ## 4. Backend Architecture
 
@@ -161,7 +160,7 @@ A deliberate simplification: services use `IAppDbContext` (EF Core `DbSet`s) dir
 
 ### Request pipeline
 
-Every request passes through, in order: request ID and structured JSON logging → global exception handler (maps domain errors to RFC 7807 ProblemDetails) → CORS (Vercel origin only) → JWT bearer authentication → rate limiter → authorization policy → controller → application service → `AppDbContext`.
+Every request passes through, in order: request ID and structured JSON logging → global exception handler (maps domain errors to RFC 7807 ProblemDetails) → CORS (only for local cross-origin development; deployed traffic is same-origin through the web service) → JWT bearer authentication → rate limiter → authorization policy → controller → application service → `AppDbContext`.
 
 | Domain error | HTTP status | Example |
 |---|---|---|
@@ -215,7 +214,7 @@ flowchart TB
 | Framework | Angular 20, standalone components only, signals for state, built-in control flow (`@if`, `@for`), `OnPush` everywhere |
 | Routing | Angular Router with lazy-loaded route groups per role; `roleGuard` sends a user to their role home (customer → Browse Meals, mother → My Meals, delivery → Available Deliveries) |
 | Server state | Per-feature services over `HttpClient`; polling with RxJS `timer` + `switchMap` (15 s for order detail, incoming orders, available deliveries and notifications) bridged to templates with `toSignal` |
-| Auth tokens | Access token kept in memory in `AuthService`; refresh token in an `HttpOnly`, `Secure`, `SameSite=None` cookie scoped to `/api/v1/auth`; a functional HTTP interceptor refreshes once on 401 and retries; `provideAppInitializer` restores the session on load |
+| Auth tokens | Access token kept in memory in `AuthService`; refresh token in an `HttpOnly`, `Secure`, `SameSite=Lax` cookie scoped to `/api/v1/auth` (same origin through the web service's `/api` proxy); a functional HTTP interceptor refreshes once on 401 and retries; `provideAppInitializer` restores the session on load |
 | Cart | Signal-based `CartService` persisted to `localStorage`; holds meals from one mother only; prices re-checked by the server at checkout (Phase 2) |
 | Forms | Typed reactive forms with inline validators mirroring the server rules; server 422 `errors` are mapped onto the matching form controls; the server remains the authority |
 | Styling | Tailwind CSS with shared tokens for status colors so each status looks the same in every role's view |
@@ -549,13 +548,13 @@ flowchart LR
     fe --> gate{"All green?"}
     be --> gate
     it --> gate
-    gate -->|"Merge to default branch"| stg["Deploy staging<br/>Vercel staging, Railway staging,<br/>EF Core migrations bundle"]
+    gate -->|"Merge to default branch"| stg["Deploy staging<br/>Railway web and API services,<br/>migrations on API start"]
     stg --> manual["Manual approval"]
     manual --> prod["Deploy production<br/>same image, migrations first"]
 ```
 
 - Workflows are path-filtered: `frontend/**` changes run the frontend job, `backend/**` changes run the backend jobs.
-- Database migrations run as an EF Core migrations bundle before the new API version starts. Migrations are additive first (add column, deploy, then remove old column in a later release) so a rollback never meets an incompatible schema.
+- Database migrations run when the API starts (`Database__MigrateOnStartup=true`), which is safe while the API runs as one instance; move to an EF Core migrations bundle run as a Railway pre-deploy command before scaling out. Migrations are additive first (add column, deploy, then remove old column in a later release) so a rollback never meets an incompatible schema.
 - The Docker image built for staging is the same image promoted to production.
 
 ## 15. Repository Structure
@@ -564,8 +563,8 @@ flowchart LR
 home-to-home/
 ├── .github/
 │   └── workflows/
-│       ├── frontend.yml              # lint, typecheck, test, build, deploy to Vercel
-│       └── backend.yml               # format, build, unit and integration tests, deploy to Railway
+│       ├── frontend.yml              # lint, test, build
+│       └── backend.yml               # format, build, unit and integration tests, Docker image
 ├── .specify/                         # spec-kit memory, templates and constitution
 ├── specs/                            # spec-kit feature folders, one per NNN-feature-name
 ├── docs/
@@ -577,7 +576,9 @@ home-to-home/
 │   ├── angular.json
 │   ├── package.json
 │   ├── proxy.conf.json               # ng serve: /api → http://localhost:5080
-│   ├── vercel.json                   # SPA rewrite to index.html
+│   ├── Dockerfile                    # build with Node, serve with nginx
+│   ├── nginx.conf.template           # SPA fallback, /api proxy to the API's private address
+│   ├── railway.json                  # Railway build and health check
 │   ├── karma.conf.js                 # headless Chrome launcher for CI
 │   ├── eslint.config.js
 │   └── src/
@@ -655,3 +656,4 @@ home-to-home/
 |---|---|---|---|
 | v1.0 | 2026-10-18 | Rana | Initial architecture created from PRD v1.0 |
 | v1.1 | 2026-10-18 | Rana | Frontend changed from React 18 to Angular 20 (sections 1, 3, 5, 14, 15 and AD-07); local Redis is optional, with an in-memory login limiter fallback |
+| v1.2 | 2026-10-18 | Rana | Hosting moved fully to Railway: the web app is an nginx service that also proxies /api to a private API (sections 3, 4, 5, 14, 15) |
