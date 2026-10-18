@@ -1,0 +1,29 @@
+root = true
+
+[*]
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{csproj,props,json,yml}]
+indent_size = 2
+
+[*.cs]
+indent_size = 4
+charset = utf-8
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_using_directive_placement = outside_namespace
+dotnet_sort_system_directives_first = true
+csharp_prefer_braces = true:warning
+# Controllers and services use primary constructors; CA1062 null checks add noise for DI-provided arguments.
+dotnet_diagnostic.CA1062.severity = none
+# ASP.NET Core has no synchronization context.
+dotnet_diagnostic.CA2007.severity = none
+
+[**/Migrations/*.cs]
+generated_code = true
+dotnet_analyzer_diagnostic.severity = none
+
+[tests/**.cs]
+# Test method names use underscores.
+dotnet_diagnostic.CA1707.severity = none
