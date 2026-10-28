@@ -61,6 +61,7 @@ Secrets are environment variables, never committed. The API reads:
 | `Storage__ServiceUrl`, `Storage__Bucket`, `Storage__AccessKey`, `Storage__SecretKey`, `Storage__PublicBaseUrl` | S3-compatible photo storage |
 | `Ordering__DeliveryFeeMinor`, `Ordering__Currency`, `Ordering__MaxActiveDeliveries` | Optional; default to 1500 (15.00), USD and 3 active deliveries per delivery person |
 | `Database__MigrateOnStartup` | `true` to apply migrations when the API starts |
+| `RateLimiting__PermitsPerMinute` | Optional; requests per minute per user (or per address when logged out), default 100 |
 
 ## Deploy to Railway
 

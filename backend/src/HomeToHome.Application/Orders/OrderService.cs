@@ -57,6 +57,14 @@ public sealed class OrderService(
             });
         }
 
+        if (meals.Count > 0 && meals.All(m => m.Mother is { IsAvailable: false }))
+        {
+            throw new ConflictException(
+                "kitchen_paused",
+                "This kitchen is not taking orders right now.",
+                new Dictionary<string, object?> { ["unavailableMealIds"] = mealIds });
+        }
+
         var unavailable = mealIds
             .Where(id => meals.SingleOrDefault(m => m.Id == id) is not { IsVisible: true, IsArchived: false, Mother.IsAvailable: true })
             .ToList();

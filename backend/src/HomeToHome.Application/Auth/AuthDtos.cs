@@ -22,7 +22,9 @@ public sealed record UserDto(
     Role Role,
     string? Address,
     string? City,
-    string? KitchenName)
+    string? KitchenName,
+    string? Bio,
+    bool? IsAvailable)
 {
     public static UserDto From(User user) => new(
         user.Id,
@@ -32,7 +34,9 @@ public sealed record UserDto(
         user.Role,
         user.Address,
         user.City,
-        user.MotherProfile?.KitchenName);
+        user.MotherProfile?.KitchenName,
+        user.MotherProfile?.Bio,
+        user.MotherProfile?.IsAvailable);
 }
 
 public sealed record AuthResult(

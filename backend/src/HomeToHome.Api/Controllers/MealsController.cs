@@ -14,10 +14,14 @@ public sealed class MealsController(MealService meals) : ControllerBase
     [HttpGet]
     [Authorize(Policy = Policies.CustomerOnly)]
     public Task<Paged<BrowseMealDto>> Browse(
+        [FromQuery] string? q,
+        [FromQuery] string? category,
+        [FromQuery] int? maxPriceMinor,
+        [FromQuery] string? sort,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = PageRequest.DefaultPageSize,
         CancellationToken cancellationToken = default) =>
-        meals.BrowseAsync(new PageRequest(page, pageSize), cancellationToken);
+        meals.BrowseAsync(BrowseQuery.Parse(q, category, maxPriceMinor, sort), new PageRequest(page, pageSize), cancellationToken);
 
     [HttpGet("{id:guid}")]
     [Authorize(Policy = Policies.CustomerOnly)]

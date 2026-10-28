@@ -91,13 +91,14 @@ builder.Services.AddCors(o => o.AddDefaultPolicy(p => p
     .AllowAnyMethod()
     .AllowCredentials()));
 
+var permitsPerMinute = builder.Configuration.GetValue("RateLimiting:PermitsPerMinute", 100);
 builder.Services.AddRateLimiter(o =>
 {
     o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     o.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(ctx =>
         RateLimitPartition.GetFixedWindowLimiter(
             ctx.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value ?? ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            _ => new FixedWindowRateLimiterOptions { PermitLimit = 100, Window = TimeSpan.FromMinutes(1) }));
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = permitsPerMinute, Window = TimeSpan.FromMinutes(1) }));
     o.OnRejected = (ctx, _) => new ValueTask(ProblemResponses.WriteAsync(ctx.HttpContext,
         StatusCodes.Status429TooManyRequests, "rate_limited", "Too many requests. Slow down and try again."));
 });

@@ -64,12 +64,38 @@ public sealed class MealService(
         return new Paged<MealDto>(meals.Select(MealDto.From).ToList(), page.SafePage, page.SafePageSize, total);
     }
 
-    public async Task<Paged<BrowseMealDto>> BrowseAsync(PageRequest page, CancellationToken cancellationToken)
+    public async Task<Paged<BrowseMealDto>> BrowseAsync(
+        BrowseQuery filters,
+        PageRequest page,
+        CancellationToken cancellationToken)
     {
         var query = BrowsableMeals();
+        if (filters.Search is not null)
+        {
+            // Backed by the trigram index on name; LIKE wildcards in the term are matched literally.
+            var pattern = "%" + EscapeLike(filters.Search) + "%";
+            query = query.Where(m => EF.Functions.ILike(m.Name, pattern, "\\"));
+        }
+
+        if (filters.Category is not null)
+        {
+            query = query.Where(m => m.Category == filters.Category);
+        }
+
+        if (filters.MaxPriceMinor is not null)
+        {
+            query = query.Where(m => m.PriceMinor <= filters.MaxPriceMinor);
+        }
+
+        var ordered = filters.Sort switch
+        {
+            BrowseSort.PriceAsc => query.OrderBy(m => m.PriceMinor).ThenByDescending(m => m.CreatedAt),
+            BrowseSort.PriceDesc => query.OrderByDescending(m => m.PriceMinor).ThenByDescending(m => m.CreatedAt),
+            _ => query.OrderByDescending(m => m.CreatedAt),
+        };
+
         var total = await query.CountAsync(cancellationToken);
-        var meals = await query
-            .OrderByDescending(m => m.CreatedAt)
+        var meals = await ordered
             .ThenBy(m => m.Id)
             .Skip((page.SafePage - 1) * page.SafePageSize)
             .Take(page.SafePageSize)
@@ -115,6 +141,11 @@ public sealed class MealService(
 
     private IQueryable<Meal> BrowsableMeals() =>
         db.Meals.AsNoTracking().Where(m => m.IsVisible && !m.IsArchived && m.Mother!.IsAvailable);
+
+    private static string EscapeLike(string term) =>
+        term.Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("%", "\\%", StringComparison.Ordinal)
+            .Replace("_", "\\_", StringComparison.Ordinal);
 
     private void EnsureOwnPhoto(string? photoUrl)
     {

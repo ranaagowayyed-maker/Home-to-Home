@@ -12,6 +12,7 @@ export type ProblemCode =
   | 'invalid_refresh_token'
   | 'storage_unavailable'
   | 'meal_unavailable'
+  | 'kitchen_paused'
   | 'invalid_transition'
   | 'order_changed'
   | 'delivery_taken'
@@ -25,7 +26,7 @@ export interface ProblemDetails {
   detail?: string;
   code: ProblemCode | (string & {});
   errors?: Record<string, string[]>;
-  /** Extension on 409 `meal_unavailable` from POST /orders. */
+  /** Extension on 409 `meal_unavailable` and `kitchen_paused` from POST /orders. */
   unavailableMealIds?: string[];
 }
 

@@ -9,6 +9,8 @@ export const TEST_USER: User = {
   address: null,
   city: null,
   kitchenName: "Fatima's Kitchen",
+  bio: null,
+  isAvailable: true,
 };
 
 export const authResponse = (token = 'access-1', user: User = TEST_USER): AuthResponse => ({

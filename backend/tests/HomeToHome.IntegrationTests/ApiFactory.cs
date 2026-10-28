@@ -33,6 +33,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("ConnectionStrings:Redis", string.Empty);
         builder.UseSetting("Jwt:SigningKey", "integration-test-signing-key-0123456789abcdef");
         builder.UseSetting("RefreshCookie:Secure", "false");
+        // Every test client shares one address; the per-user limit is not what these tests exercise.
+        builder.UseSetting("RateLimiting:PermitsPerMinute", "10000");
         builder.UseSetting("Storage:ServiceUrl", "https://s3.test");
         builder.UseSetting("Storage:Bucket", "meal-photos");
         builder.UseSetting("Storage:AccessKey", "test-access-key");

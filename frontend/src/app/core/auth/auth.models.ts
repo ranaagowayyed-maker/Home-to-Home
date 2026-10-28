@@ -9,6 +9,10 @@ export interface User {
   address: string | null;
   city: string | null;
   kitchenName: string | null;
+  /** Mothers only; null for other roles. */
+  bio: string | null;
+  /** Mothers only: whether the kitchen is taking orders. Null for other roles. */
+  isAvailable: boolean | null;
 }
 
 export interface AuthResponse {

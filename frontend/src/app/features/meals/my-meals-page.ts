@@ -10,6 +10,7 @@ import { ErrorBanner } from '../../shared/ui/error-banner';
 import { Skeleton } from '../../shared/ui/skeleton';
 import { Spinner } from '../../shared/ui/spinner';
 import { ToastService } from '../../shared/ui/toast.service';
+import { AvailabilityToggle } from './availability-toggle';
 import { MealsApi } from './meals-api';
 import {
   CATEGORY_LABELS,
@@ -28,6 +29,7 @@ interface ActionError {
   selector: 'app-my-meals-page',
   imports: [
     RouterLink,
+    AvailabilityToggle,
     MoneyPipe,
     Button,
     ConfirmDialog,
