@@ -3,6 +3,7 @@ import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { Role, ROLE_HOME, User } from '../../core/auth/auth.models';
 import { AuthService } from '../../core/auth/auth.service';
 import { CartService } from '../../core/cart/cart.service';
+import { NotificationBell } from './notification-bell';
 import { Spinner } from './spinner';
 
 interface NavLink {
@@ -20,21 +21,23 @@ const ROLE_NAV: Record<Role, NavLink[]> = {
   MOTHER: [
     { label: 'My Meals', path: ROLE_HOME.MOTHER },
     { label: 'Incoming Orders', path: '/incoming-orders' },
+    { label: 'Order History', path: '/orders', exact: true },
   ],
   DELIVERY: [
     { label: 'Available Deliveries', path: ROLE_HOME.DELIVERY, exact: true },
     { label: 'My Deliveries', path: '/deliveries/mine' },
+    { label: 'Order History', path: '/orders', exact: true },
   ],
 };
 
 @Component({
   selector: 'app-header',
-  imports: [RouterLink, RouterLinkActive, Spinner],
+  imports: [RouterLink, RouterLinkActive, NotificationBell, Spinner],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: 'sticky top-0 z-40 block border-b border-stone-200 bg-white/95 backdrop-blur',
-    '(document:click)': 'menuOpen.set(false)',
-    '(document:keydown.escape)': 'menuOpen.set(false)',
+    '(document:click)': 'closeMenus()',
+    '(document:keydown.escape)': 'closeMenus()',
   },
   template: `
     <div class="mx-auto flex h-16 max-w-3xl items-center gap-2 px-4">
@@ -53,6 +56,7 @@ const ROLE_NAV: Record<Role, NavLink[]> = {
           </a>
         }
       </nav>
+      <app-notification-bell [open]="bellOpen()" (openChange)="setBellOpen($event)" />
       @if (user().role === 'CUSTOMER') {
         <a
           routerLink="/cart"
@@ -119,6 +123,14 @@ const ROLE_NAV: Record<Role, NavLink[]> = {
                 {{ link.label }}
               </a>
             }
+            <a
+              role="menuitem"
+              routerLink="/profile"
+              class="flex min-h-11 items-center px-4 text-sm hover:bg-stone-100"
+              (click)="menuOpen.set(false)"
+            >
+              Profile
+            </a>
             <button
               type="button"
               role="menuitem"
@@ -145,6 +157,7 @@ export class AppHeader {
   readonly user = input.required<User>();
 
   protected readonly menuOpen = signal(false);
+  protected readonly bellOpen = signal(false);
   protected readonly loggingOut = signal(false);
   protected readonly nav = computed(() => ROLE_NAV[this.user().role]);
   protected readonly home = computed(() => ROLE_HOME[this.user().role]);
@@ -156,7 +169,20 @@ export class AppHeader {
 
   protected toggleMenu(event: MouseEvent): void {
     event.stopPropagation();
+    this.bellOpen.set(false);
     this.menuOpen.update((open) => !open);
+  }
+
+  protected setBellOpen(open: boolean): void {
+    this.bellOpen.set(open);
+    if (open) {
+      this.menuOpen.set(false);
+    }
+  }
+
+  protected closeMenus(): void {
+    this.menuOpen.set(false);
+    this.bellOpen.set(false);
   }
 
   protected logout(): void {

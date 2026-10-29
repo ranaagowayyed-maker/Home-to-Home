@@ -1,6 +1,62 @@
 <section class="flex flex-col gap-6">
   <h1 class="text-2xl font-bold">Browse Meals</h1>
 
+  <form
+    [formGroup]="filters"
+    class="grid gap-3 rounded-xl border border-stone-200 bg-white p-4 sm:grid-cols-2"
+    role="search"
+    novalidate
+  >
+    <label class="flex flex-col gap-1.5 text-sm font-medium text-stone-800 sm:col-span-2">
+      Search
+      <input
+        class="input"
+        type="search"
+        formControlName="q"
+        placeholder="e.g. grape leaves"
+        maxlength="80"
+        autocomplete="off"
+        data-testid="search"
+      />
+    </label>
+    <label class="flex flex-col gap-1.5 text-sm font-medium text-stone-800">
+      Category
+      <select class="input" formControlName="category" data-testid="category">
+        <option value="">All categories</option>
+        @for (option of categories; track option.value) {
+          <option [value]="option.value">{{ option.label }}</option>
+        }
+      </select>
+    </label>
+    <div class="flex flex-col gap-1.5">
+      <label for="maxPrice" class="text-sm font-medium text-stone-800">Max price</label>
+      <input
+        id="maxPrice"
+        class="input"
+        type="number"
+        inputmode="decimal"
+        min="0.01"
+        step="0.01"
+        formControlName="maxPrice"
+        placeholder="Any"
+        data-testid="max-price"
+        [attr.aria-invalid]="filters.controls.maxPrice.invalid"
+        aria-describedby="maxPrice-error"
+      />
+      @if (filters.controls.maxPrice.invalid) {
+        <p id="maxPrice-error" class="text-sm text-red-700">Enter a price above 0.</p>
+      }
+    </div>
+    <label class="flex flex-col gap-1.5 text-sm font-medium text-stone-800 sm:col-span-2">
+      Sort by
+      <select class="input" formControlName="sort" data-testid="sort">
+        @for (option of sortOptions; track option.value) {
+          <option [value]="option.value">{{ option.label }}</option>
+        }
+      </select>
+    </label>
+  </form>
+
   @switch (meals.status()) {
     @case ('loading') {
       <ul class="grid gap-4 sm:grid-cols-2" aria-label="Loading meals">
@@ -20,13 +76,38 @@
       <app-error-banner message="Couldn't load meals." (retry)="meals.load()" />
     }
     @default {
+      @if (meals.reloadFailed()) {
+        <app-error-banner message="Couldn't update the results." (retry)="meals.load()" />
+      }
       @if (meals.items().length === 0) {
-        <app-empty-state message="No meals available right now. Check back soon.">
-          <button app-button variant="secondary" type="button" (click)="meals.load()">
-            Refresh
-          </button>
-        </app-empty-state>
+        @if (filtered()) {
+          <app-empty-state message="No meals match your search.">
+            <button app-button variant="secondary" type="button" (click)="clearFilters()">
+              Clear filters
+            </button>
+          </app-empty-state>
+        } @else {
+          <app-empty-state message="No meals available right now. Check back soon.">
+            <button app-button variant="secondary" type="button" (click)="meals.load()">
+              Refresh
+            </button>
+          </app-empty-state>
+        }
       } @else {
+        <div class="flex items-center justify-between gap-3">
+          <p class="text-sm text-stone-600" data-testid="result-count" aria-live="polite">
+            {{ meals.total() }} {{ meals.total() === 1 ? 'meal' : 'meals' }}
+          </p>
+          @if (filtered()) {
+            <button
+              type="button"
+              class="inline-flex min-h-11 items-center text-sm font-medium text-brand-700 hover:underline"
+              (click)="clearFilters()"
+            >
+              Clear filters
+            </button>
+          }
+        </div>
         <ul class="grid gap-4 sm:grid-cols-2">
           @for (meal of meals.items(); track meal.id) {
             <li>

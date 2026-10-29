@@ -48,6 +48,13 @@ export class AuthService {
     return this.http.get<User>(apiUrl('/auth/me')).pipe(tap((user) => this.user.set(user)));
   }
 
+  /** Replaces the signed-in user after their profile changed on the server. */
+  updateUser(user: User): void {
+    if (this.user()?.id === user.id) {
+      this.user.set(user);
+    }
+  }
+
   restoreSession(): Promise<unknown> {
     return firstValueFrom(this.refresh().pipe(catchError(() => of(null))));
   }

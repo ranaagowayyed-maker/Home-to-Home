@@ -9,6 +9,8 @@
     </a>
   </header>
 
+  <app-availability-toggle />
+
   @if (actionError(); as error) {
     <app-error-banner [message]="error.message" (retry)="error.retry()" />
   }

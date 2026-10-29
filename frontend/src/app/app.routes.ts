@@ -20,7 +20,7 @@ export const routes: Routes = [
     loadComponent: () => import('./features/customer/checkout-page').then((m) => m.CheckoutPage),
   },
   {
-    // Customer order list at /orders; the order page /orders/:id is shared by all three roles.
+    // Order history at /orders and the order page at /orders/:id are shared by all three roles.
     path: 'orders',
     canMatch: [authGuard],
     loadChildren: () => import('./features/orders/orders.routes'),
@@ -41,6 +41,12 @@ export const routes: Routes = [
     path: 'deliveries',
     canMatch: [authGuard, roleGuard('DELIVERY')],
     loadChildren: () => import('./features/delivery/delivery.routes'),
+  },
+  {
+    path: 'profile',
+    canMatch: [authGuard],
+    title: 'Profile · From Home To Home',
+    loadComponent: () => import('./features/profile/profile-page').then((m) => m.ProfilePage),
   },
   {
     path: '',

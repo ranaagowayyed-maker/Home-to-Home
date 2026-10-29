@@ -16,6 +16,8 @@ import { OrdersApi } from '../orders/orders-api';
 import { NO_ACCESS_MESSAGE, PlaceOrderRequest } from '../orders/orders.models';
 import { CartTotals } from './cart-totals';
 
+export const KITCHEN_PAUSED_MESSAGE = 'This kitchen is not taking orders right now.';
+
 interface Banner {
   message: string;
   retryable: boolean;
@@ -103,6 +105,10 @@ export class CheckoutPage {
     switch (problem?.code) {
       case 'meal_unavailable':
         this.cart.markUnavailable(problem.unavailableMealIds ?? []);
+        return;
+      case 'kitchen_paused':
+        this.cart.markUnavailable(problem.unavailableMealIds ?? []);
+        this.banner.set({ message: KITCHEN_PAUSED_MESSAGE, retryable: false });
         return;
       case 'forbidden':
         this.banner.set({ message: NO_ACCESS_MESSAGE, retryable: false });
