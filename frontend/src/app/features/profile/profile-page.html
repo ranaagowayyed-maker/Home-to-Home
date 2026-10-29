@@ -1,0 +1,109 @@
+<section class="mx-auto flex max-w-xl flex-col gap-6">
+  <header class="flex flex-col gap-1">
+    <h1 class="text-2xl font-bold">Profile</h1>
+    <p class="text-sm text-stone-600">Your address and phone fill in checkout for you.</p>
+  </header>
+
+  @if (bannerError(); as message) {
+    <app-error-banner [message]="message" [retrying]="saving()" (retry)="save()" />
+  }
+
+  <dl
+    class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-xl border border-stone-200 bg-white p-4 text-sm"
+  >
+    <dt class="text-stone-500">Email</dt>
+    <dd class="truncate font-medium" data-testid="profile-email">{{ user()?.email }}</dd>
+    <dt class="text-stone-500">Account type</dt>
+    <dd class="font-medium">{{ roleLabel() }}</dd>
+  </dl>
+
+  <form [formGroup]="form" class="flex flex-col gap-5" novalidate (ngSubmit)="save()">
+    <app-field label="Name" for="name" [control]="form.controls.name">
+      <input
+        id="name"
+        class="input"
+        formControlName="name"
+        maxlength="80"
+        autocomplete="name"
+        [attr.aria-invalid]="form.controls.name.touched && form.controls.name.invalid"
+        aria-describedby="name-error"
+      />
+    </app-field>
+
+    <app-field label="Phone" for="phone" [control]="form.controls.phone" [messages]="phoneMessages">
+      <input
+        id="phone"
+        class="input"
+        type="tel"
+        formControlName="phone"
+        autocomplete="tel"
+        [attr.aria-invalid]="form.controls.phone.touched && form.controls.phone.invalid"
+        aria-describedby="phone-error"
+      />
+    </app-field>
+
+    <app-field
+      label="Address (optional)"
+      for="address"
+      hint="Street, building and floor."
+      [control]="form.controls.address"
+    >
+      <textarea
+        id="address"
+        class="input min-h-20"
+        formControlName="address"
+        maxlength="300"
+        rows="3"
+        autocomplete="street-address"
+        [attr.aria-invalid]="form.controls.address.touched && form.controls.address.invalid"
+        aria-describedby="address-error address-hint"
+      ></textarea>
+    </app-field>
+
+    <app-field label="City (optional)" for="city" [control]="form.controls.city">
+      <input
+        id="city"
+        class="input"
+        formControlName="city"
+        maxlength="80"
+        autocomplete="address-level2"
+        [attr.aria-invalid]="form.controls.city.touched && form.controls.city.invalid"
+        aria-describedby="city-error"
+      />
+    </app-field>
+
+    @if (isMother()) {
+      <app-field label="Kitchen name" for="kitchenName" [control]="form.controls.kitchenName">
+        <input
+          id="kitchenName"
+          class="input"
+          formControlName="kitchenName"
+          maxlength="60"
+          [attr.aria-invalid]="
+            form.controls.kitchenName.touched && form.controls.kitchenName.invalid
+          "
+          aria-describedby="kitchenName-error"
+        />
+      </app-field>
+
+      <app-field
+        label="About your kitchen (optional)"
+        for="bio"
+        hint="Up to 500 characters."
+        [control]="form.controls.bio"
+      >
+        <textarea
+          id="bio"
+          class="input min-h-24"
+          formControlName="bio"
+          maxlength="500"
+          rows="4"
+          [attr.aria-invalid]="form.controls.bio.touched && form.controls.bio.invalid"
+          aria-describedby="bio-error bio-hint"
+        ></textarea>
+      </app-field>
+    }
+
+    <button app-button type="submit" [loading]="saving()">Save</button>
+  </form>
+</section>
